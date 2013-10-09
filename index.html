@@ -102,7 +102,8 @@ function readMessage() {
 
 
 	var palette = new Int32Array(256);
-	var paletteMap = new Int32Array(256);
+
+	var paletteHisto = new Uint32Array(256);
 
 	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
@@ -118,23 +119,37 @@ function readMessage() {
 
 		for (var j = 0; j < 256; ++j) {
 			palette[j] = -1;
-			paletteMap[j] = -1;
+			paletteHisto[j] = 0;
 		}
 
 
 		var paletteCount = 0;
 		for (var j = 0; j < n; ++j) {
 			var index = pixels[4 * j + 3];
-			if (-1 === palette[index]) {
-				if (trans === index) {
+			if (-1 == palette[index]) {
+				if (trans == index) {
 					palette[index] = 0;
 				} else {
 				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
 				}
 				++paletteCount;
 			}
+
+			++paletteHisto[index];
 		}
 		console.log('palette count for frame ' + i + ' is ' + paletteCount);
+		if (0 == i) {
+			// detailed pallete output
+			for (var j = 0; j < 256; ++j) {
+				if (-1 != palette[j]) {
+					console.log('frame ' + i + ' palette[' + j + '] = ' + ((palette[j] >> 16) & 0xFF) + ',' +
+						((palette[j] >> 8) & 0xFF) + ',' + 
+						(palette[j] & 0xFF));
+				}
+			}
+		}
+
+
 
 		var pairs = [];
 		for (var j = 0; j < 256; ++j) {
@@ -153,8 +168,51 @@ function readMessage() {
 				}
 			}
 		}
+
+		if (0 === pairs.length) {
+
+		// add capacity to the most frequent index
+			var maxIndex = -1;
+			// first
+			for (var j = 0; j < 256; ++j) {
+				if (trans !== j && -1 !== palette[j]) {
+					maxIndex = j;
+					break;
+				}
+			}
+
+			if (0 <= maxIndex) {
+				for (var j = 0; j < 256; ++j) {
+					if (trans !== j && -1 !== palette[j] && 
+						paletteHisto[maxIndex] < paletteHisto[j]) {
+						maxIndex = j;
+					}
+				}
+
+				// fill in one
+				for (var j = 0; j < 256; ++j) {
+					if (-1 === palette[j]) {
+						palette[j] = palette[maxIndex];
+						++paletteCount;
+						if (maxIndex < j) {
+							pairs.push(maxIndex);
+							pairs.push(j);
+						} else {
+							pairs.push(j);
+							pairs.push(maxIndex);
+							
+						}
+						break;
+					}
+				}
+			}
+		}
+
 		
 	console.log('pair count for frame ' + i + ' is ' + pairs.length);
+	if (0 == i) {
+		console.log('pairs for frame ' + i + ' are ' + pairs);
+	}
 
 		var b = 0;
 		var bn = 0;
@@ -183,6 +241,7 @@ function readMessage() {
 			if (0 <= k) {
 				b |= (k % 2) << bn++;
 				if (8 == bn) {
+					console.log('frame ' + i + ' read byte ' + b);
 					messageBytes[bi++] = b;
 					b = 0;
 					bn = 0;
@@ -231,6 +290,8 @@ function updateMessage(message) {
 
 	var palette = new Int32Array(256);
 
+	var paletteHisto = new Uint32Array(256);
+
 	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
 		var trans = frame.transparent_index;
@@ -245,14 +306,15 @@ function updateMessage(message) {
 
 		for (var j = 0; j < 256; ++j) {
 			palette[j] = -1;
+			paletteHisto[j] = 0;
 		}
 
 
 		var paletteCount = 0;
 		for (var j = 0; j < n; ++j) {
 			var index = pixels[4 * j + 3];
-			if (-1 === palette[index]) {
-				if (trans === index) {
+			if (-1 == palette[index]) {
+				if (trans == index) {
 					palette[index] = 0;
 				} else {
 				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
@@ -260,15 +322,22 @@ function updateMessage(message) {
 				++paletteCount;
 			}
 
+			++paletteHisto[index];
 			indexedPixels[j] = index;
 		}
 
 		console.log('palette count for frame ' + i + ' is ' + paletteCount);
+		if (0 == i) {
+			// detailed pallete output
+			for (var j = 0; j < 256; ++j) {
+				if (-1 !== palette[j]) {
+					console.log('frame ' + i + ' palette[' + j + '] = ' + ((palette[j] >> 16) & 0xFF) + ',' +
+						((palette[j] >> 8) & 0xFF) + ',' + 
+						(palette[j] & 0xFF));
+				}
+			}
+		}
 
-		// FIXME add capacity
-		// if (paletteCount < 256) {
-
-		// }
 
 
 		var pairs = [];
@@ -288,8 +357,50 @@ function updateMessage(message) {
 				}
 			}
 		}
+
+
+
 		console.log('pair count for frame ' + i + ' is ' + pairs.length);
 
+
+		if (0 === pairs.length) {
+
+		// add capacity to the most frequent index
+			var maxIndex = -1;
+			// first
+			for (var j = 0; j < 256; ++j) {
+				if (trans !== j && -1 !== palette[j]) {
+					maxIndex = j;
+					break;
+				}
+			}
+
+			if (0 <= maxIndex) {
+				for (var j = 0; j < 256; ++j) {
+					if (trans !== j && -1 !== palette[j] && 
+						paletteHisto[maxIndex] < paletteHisto[j]) {
+						maxIndex = j;
+					}
+				}
+
+				// fill in one
+				for (var j = 0; j < 256; ++j) {
+					if (-1 === palette[j]) {
+						palette[j] = palette[maxIndex];
+						++paletteCount;
+						if (maxIndex < j) {
+							pairs.push(maxIndex);
+							pairs.push(j);
+						} else {
+							pairs.push(j);
+							pairs.push(maxIndex);
+							
+						}
+						break;
+					}
+				}
+			}
+		}
 
 
 			console.log('recoded ' + bi + ' of ' + messageBytes.length + ' bytes');
@@ -316,8 +427,10 @@ function updateMessage(message) {
 				var index = indexedPixels[j];
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
-					indexedPixels[j] = pairs[2 * (k / 2) + ((b >> bn++) & 0x01)];
+					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
 					if (8 == bn) {
+						console.log('frame ' + i + ' wrote byte ' + b);
+
 						if (255 == ++byteCount) {
 							break;
 						}
@@ -345,7 +458,7 @@ function updateMessage(message) {
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
 					console.log('header write bit ' + ((b >> bn) & 0x01));
-					indexedPixels[j] = pairs[2 * (k / 2) + ((b >> bn++) & 0x01)];
+					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
 					if (8 == bn) {
 						break;
 					}
@@ -483,7 +596,7 @@ function str2ab(str) {
   for (var i=0, strLen=str.length; i<strLen; i++) {
     bufView[i] = str.charCodeAt(i);
   }
-  return new Uint8Array(bufView);
+  return new Uint8Array(buf);
 }
 
 
