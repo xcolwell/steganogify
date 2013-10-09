@@ -654,6 +654,8 @@ var reader = new FileReader();
     evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   }
 
+
+  if (window.requestFileSystem) {
   // Setup the dnd listeners.
   document.body.addEventListener('dragover', handleDragOver, false);
   document.body.addEventListener('drop', handleFileSelect, false);
@@ -677,6 +679,9 @@ var reader = new FileReader();
   			changed = true;
   		}
   });
+} else {
+	document.getElementById('the_img').src = 'not_supported.gif';
+}
 
 
 
