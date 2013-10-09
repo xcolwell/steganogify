@@ -1,0 +1,493 @@
+<html>
+<head>
+	<script src="omggif/omggif.js" type="text/javascript"></script>
+
+</head>
+<body style="margin: 0; padding: 0;">
+<div style="position: absolute; top: 0%; bottom: 0px; left: 0px; right: 50%; background: rgb(128, 128, 128);"><img id="the_img" src="start.gif" style="display: block;
+    margin-left: auto;
+    margin-right: auto; max-width: 80%; max-height: 80%;" /><div style="position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(0, 0, 0, 0.6); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;">The GIF above was updated with the message to the right. You can <a href="">save the GIF</a> and the message will be inside it forever!</div></div>
+<div id="the_message" style="position: absolute; top: 0px; bottom: 0px; left: 50%; right: 0px; padding: 32px; font-family: monospace; font-size: 24px; color: rgb(128, 128, 128)" contenteditable="true"></div>
+
+<script>
+window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
+
+function errorHandler(e) {
+  var msg = '';
+
+  switch (e.code) {
+    case FileError.QUOTA_EXCEEDED_ERR:
+      msg = 'QUOTA_EXCEEDED_ERR';
+      break;
+    case FileError.NOT_FOUND_ERR:
+      msg = 'NOT_FOUND_ERR';
+      break;
+    case FileError.SECURITY_ERR:
+      msg = 'SECURITY_ERR';
+      break;
+    case FileError.INVALID_MODIFICATION_ERR:
+      msg = 'INVALID_MODIFICATION_ERR';
+      break;
+    case FileError.INVALID_STATE_ERR:
+      msg = 'INVALID_STATE_ERR';
+      break;
+    default:
+      msg = 'Unknown Error';
+      break;
+  };
+
+  console.log('Error: ' + msg);
+}
+
+
+var name;
+var bytes;
+
+// Uint8Array
+function writeLocalFile() {
+	window.requestFileSystem(window.TEMPORARY, 64 *1024*1024, function(fs) {
+    // Duplicate each file the user selected to the app's fs.
+
+
+      // Capture current iteration's file in local scope for the getFile() callback.
+      (function(blob) {
+      	console.log('outer ' + name);
+        fs.root.getFile(name, {create: true}, function(fileEntry) {
+        	console.log('inner');
+          fileEntry.createWriter(function(fileWriter) {
+          	fileWriter.onwriteend = function(e) {
+
+	            document.getElementById('the_img').src = fileEntry.toURL();
+          	};
+            fileWriter.write(blob); // Note: write() can take a File or Blob object.
+
+          }, errorHandler);
+        }, errorHandler);
+      })(new Blob([bytes], {type: 'image/gif'}));
+
+  }, errorHandler);
+}
+
+// Uint8Array
+function init() {
+	// TODO parse gif, save parsed state
+	// TODO decode message
+
+
+	readMessage();
+
+	
+
+
+}
+
+var MAX_MESSAGE_LENGTH = 1024;
+
+function readMessage() {
+	// 1: bad format
+	var error = 0;
+
+	var messageBytes = new Uint8Array(MAX_MESSAGE_LENGTH);
+	var bi = 0;
+
+	var gr = new GifReader(bytes);
+
+	// TODO
+	var frameCount = gr.numFrames();
+	var frame = gr.frameInfo(0);
+	var n = frame.width * frame.height;
+	var pixels = new Uint8Array(4 * n);
+
+	console.log('frame count ' + frameCount);
+
+
+	var palette = new Int32Array(256);
+	var paletteMap = new Int32Array(256);
+
+	for (var i = 0; i < frameCount; ++i) {
+		frame = gr.frameInfo(i);
+		var trans = frame.transparent_index;
+		if (trans === null) trans = 256;
+
+		gr.decodeAndBlitFrameRGBI(i, pixels);
+
+		/* 1. construct the palette by scanning the pixels
+		 * 2. construct a set of index pairs
+		 * 3. scan the pixels with the index pairs and construct the bytes
+		 */
+
+		for (var j = 0; j < 256; ++j) {
+			palette[j] = -1;
+			paletteMap[j] = -1;
+		}
+
+
+		var paletteCount = 0;
+		for (var j = 0; j < n; ++j) {
+			var index = pixels[4 * j + 3];
+			if (-1 === palette[index]) {
+				if (trans === index) {
+					palette[index] = 0;
+				} else {
+				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
+				}
+				++paletteCount;
+			}
+		}
+		console.log('palette count for frame ' + i + ' is ' + paletteCount);
+
+		var pairs = [];
+		for (var j = 0; j < 256; ++j) {
+			if (trans === j || 0 <= pairs.indexOf(j)) {
+				continue;
+			}
+			var c = palette[j];
+			if (-1 === c) {
+				continue;
+			}
+			for (var k = j + 1; k < 256; ++k) {
+				if (palette[k] === c) {
+					pairs.push(j);
+					pairs.push(k);
+					break;
+				}
+			}
+		}
+		
+	console.log('pair count for frame ' + i + ' is ' + pairs.length);
+
+		var b = 0;
+		var bn = 0;
+		var byteCount = 0;
+		var j = 0;
+		for (; j < n; ++j) {
+			var index = pixels[4 * j + 3];
+			var k = pairs.indexOf(index);
+			if (0 <= k) {
+				console.log('header read bit ' + (k % 2));
+				
+				b |= (k % 2) << bn++;
+				if (8 == bn) {
+					byteCount = b;
+					b = 0;
+					bn = 0;
+
+					break;
+				}
+			}
+		}
+		console.log('encoded byte count for frame ' + i + ' is ' + byteCount);
+		for (++j; j < n && 0 < byteCount; ++j) {
+			var index = pixels[4 * j + 3];
+			var k = pairs.indexOf(index);
+			if (0 <= k) {
+				b |= (k % 2) << bn++;
+				if (8 == bn) {
+					messageBytes[bi++] = b;
+					b = 0;
+					bn = 0;
+					--byteCount;
+				}
+			}
+		}
+		// encoder will zero out as much as possible
+		if (0 !== b && 0 !== bn) {
+			console.log("ERROR: message byte left hanging. Problem with encoder.");
+
+			error = 1;
+			break;
+		}
+
+
+
+	}
+
+
+	return 0 === error ? ab2str(new Uint8Array(messageBytes, 0, bi)) : null;
+
+}
+
+function updateMessage(message) {
+
+
+	var messageBytes = str2ab(message);
+	var bi = 0;
+
+
+	var gr = new GifReader(bytes);
+
+	// TODO
+	var frameCount = gr.numFrames();
+	var frame = gr.frameInfo(0);
+	var n = frame.width * frame.height;
+	var pixels = new Uint8Array(4 * n);
+	var indexedPixels = new Uint8Array(n);
+
+	console.log('frame count ' + frameCount);
+
+	var buf = new Uint8Array(n * frameCount);
+	var gw = new GifWriter(buf, frame.width, frame.height, gr.opts());
+
+
+	var palette = new Int32Array(256);
+
+	for (var i = 0; i < frameCount; ++i) {
+		frame = gr.frameInfo(i);
+		var trans = frame.transparent_index;
+		if (trans === null) trans = 256;
+
+		gr.decodeAndBlitFrameRGBI(i, pixels);
+
+		/* 1. construct the palette by scanning the pixels
+		 * 2. construct a set of index pairs
+		 * 3. 
+		 */
+
+		for (var j = 0; j < 256; ++j) {
+			palette[j] = -1;
+		}
+
+
+		var paletteCount = 0;
+		for (var j = 0; j < n; ++j) {
+			var index = pixels[4 * j + 3];
+			if (-1 === palette[index]) {
+				if (trans === index) {
+					palette[index] = 0;
+				} else {
+				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
+				}
+				++paletteCount;
+			}
+
+			indexedPixels[j] = index;
+		}
+
+		console.log('palette count for frame ' + i + ' is ' + paletteCount);
+
+		// FIXME add capacity
+		// if (paletteCount < 256) {
+
+		// }
+
+
+		var pairs = [];
+		for (var j = 0; j < 256; ++j) {
+			if (trans === j || 0 <= pairs.indexOf(j)) {
+				continue;
+			}
+			var c = palette[j];
+			if (-1 === c) {
+				continue;
+			}
+			for (var k = j + 1; k < 256; ++k) {
+				if (palette[k] === c) {
+					pairs.push(j);
+					pairs.push(k);
+					break;
+				}
+			}
+		}
+		console.log('pair count for frame ' + i + ' is ' + pairs.length);
+
+
+
+			console.log('recoded ' + bi + ' of ' + messageBytes.length + ' bytes');
+
+			var byteCount = 0;
+		// recode as much as can fit
+		if (bi < messageBytes.length) {
+			var b = messageBytes[bi];
+			var bn = 0;
+
+			var j = 0;
+			for (; j < n; ++j) {
+				var index = indexedPixels[j];
+				var k = pairs.indexOf(index);
+				if (0 <= k) {
+					if (8 == ++bn) {
+						break;
+					}
+				}
+			}
+			console.log('recoding stopped header at ' + j + ' with bits ' + bn);
+			bn = 0;
+			for (++j; j < n; ++j) {
+				var index = indexedPixels[j];
+				var k = pairs.indexOf(index);
+				if (0 <= k) {
+					indexedPixels[j] = pairs[2 * (k / 2) + ((b >> bn++) & 0x01)];
+					if (8 == bn) {
+						if (255 == ++byteCount) {
+							break;
+						}
+						if (++bi == messageBytes.length) {
+							break;
+						}
+						b = messageBytes[bi];
+						bn = 0;
+					}
+				}
+			}
+
+			console.log('recoded ' + byteCount + ' bytes with ' + bn + ' hanging bits');
+
+			
+		}
+
+		// always write the header
+			// the reader counts on having a header (0),
+			// and if not skips the frame
+			var b = byteCount;
+			var bn = 0;
+			for (j = 0; j < n; ++j) {
+				var index = indexedPixels[j];
+				var k = pairs.indexOf(index);
+				if (0 <= k) {
+					console.log('header write bit ' + ((b >> bn) & 0x01));
+					indexedPixels[j] = pairs[2 * (k / 2) + ((b >> bn++) & 0x01)];
+					if (8 == bn) {
+						break;
+					}
+				}
+			}
+			console.log('wrote header for byte count ' + byteCount);
+
+
+		gw.addFrame(0, 0, frame.width, frame.height, indexedPixels, 
+		{
+			palette: palette,
+			transparent: frame.transparent_index,
+			delay: frame.delay,
+			disposal: frame.disposal
+		});
+
+
+		// var b = 0;
+		// var bn = 0;
+		// var byteCount = 0;
+		// for (var j = 0; j < n; ++j) {
+		// 	var index = pixels[4 * j + 3];
+		// 	var k = pairs.indexOf(index);
+		// 	if (0 <= k) {
+		// 		b |= (k % 2) << bn++;
+		// 		if (8 == bn) {
+		// 			byteCount = b;
+		// 			b = 0;
+		// 			bn = 0;
+		// 		}
+		// 	}
+		// }
+		// console.log('encoded byte count for frame ' + i + ' is ' + byteCount);
+		// for (var j = 0; j < n && 0 < byteCount; ++j) {
+		// 	var index = pixels[4 * j + 3];
+		// 	var k = pairs.indexOf(index);
+		// 	if (0 <= k) {
+		// 		b |= (k % 2) << bn++;
+		// 		if (8 == bn) {
+		// 			messageBytes[bi++] = b;
+		// 			b = 0;
+		// 			bn = 0;
+		// 			--byteCount;
+		// 		}
+		// 	}
+		// }
+		// if (0 !== bn) {
+		// 	console.log("ERROR: message byte left hanging. Problem with encoder.");
+
+		// 	error = 1;
+		// 	break;
+		// }
+
+
+
+	}
+
+	return new Uint8Array(buf, 0, gw.end());
+
+}
+
+
+
+function initWithFile(f) {
+
+
+
+var reader = new FileReader();
+
+      // Closure to capture the file information.
+      reader.onload = (function(theFile) {
+        return function(e) {
+          // e.target.result has the byte array
+
+          name = theFile.name;
+
+          bytes = new Uint8Array(e.target.result);
+
+          writeLocalFile();
+
+
+
+		// init the message state
+		var message = readMessage();
+		document.getElementById('the_message').innerHTML = null != message ? message : '';
+
+
+        };
+      })(f);
+
+      reader.readAsArrayBuffer(f);
+
+	return true;
+}
+
+  function handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var files = evt.dataTransfer.files; // FileList object.
+
+    // files is a FileList of File objects. List some properties.
+    for (var i = 0, f; f = files[i]; i++) {
+      if (/\.gif$/.test(f.name) && initWithFile(f)) {
+      	break;
+      }
+    }
+  }
+
+  function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+
+  // Setup the dnd listeners.
+  document.body.addEventListener('dragover', handleDragOver, false);
+  document.body.addEventListener('drop', handleFileSelect, false);
+
+  document.getElementById('the_message').addEventListener('blur', function(e) {
+  	bytes = updateMessage(document.getElementById('the_message').innerHTML);
+
+          writeLocalFile();
+  });
+
+
+
+  function ab2str(buf) {
+  return String.fromCharCode.apply(null, new Uint16Array(buf));
+}
+
+function str2ab(str) {
+  var buf = new ArrayBuffer(str.length*2); // 2 bytes for each char
+  var bufView = new Uint16Array(buf);
+  for (var i=0, strLen=str.length; i<strLen; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+  return new Uint8Array(bufView);
+}
+
+
+  </script>
+
+</body>
+</html>
