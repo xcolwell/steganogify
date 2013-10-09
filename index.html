@@ -1,13 +1,73 @@
 <html>
 <head>
 	<script src="omggif/omggif.js" type="text/javascript"></script>
+<style type="text/css">
+
+a {
+	color: rgb(128, 255, 255);
+	text-decoration: none;
+	border-bottom: 1px rgb(255, 255, 255) dotted;
+}
+
+div#the_update_notif {
+opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+
+div#the_update_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
+
+div#the_golden_update_notif {
+opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+
+div#the_golden_update_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
+
+
+div#the_empty_notif {
+	opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+	position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+div#the_empty_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
+
+</style>
 
 </head>
 <body style="margin: 0; padding: 0;">
-<div style="position: absolute; top: 0%; bottom: 0px; left: 0px; right: 50%; background: rgb(128, 128, 128);"><img id="the_img" src="start.gif" style="display: block;
+<div style="position: absolute; top: 0%; bottom: 0px; left: 0px; right: 50%; background: rgb(128, 128, 128); padding: 32px;"><img id="the_img" src="start.gif" style="display: block;
     margin-left: auto;
-    margin-right: auto; max-width: 80%; max-height: 80%;" /><div style="position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(0, 0, 0, 0.6); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;">The GIF above was updated with the message to the right. You can <a href="">save the GIF</a> and the message will be inside it forever!</div></div>
-<div id="the_message" style="position: absolute; top: 0px; bottom: 0px; left: 50%; right: 0px; padding: 32px; font-family: monospace; font-size: 24px; color: rgb(128, 128, 128)" contenteditable="true"></div>
+    margin-right: auto; max-width: 80%; max-height: 80%;" /><div id="the_empty_notif">The GIF above has no hidden message. You can add one to the right!</div><div id="the_update_notif">The message to the right is being written into the GIF above. You can <a id="the_link" href="#" target="new">save the GIF</a> and the message will be hidden inside it forever!</div><div id="the_golden_update_notif">The message to the right was written into the GIF above. You can <a id="the_golden_link" href="#" target="new">save the GIF</a> and the message will be hidden inside it forever!</div></div>
+    <div style="position: absolute; top: 0px; bottom: 0px; left: 50%; right: 0px;"><textarea id="the_message" style="width: 100%; height: 100%; padding: 32px; font-family: monospace; font-size: 24px; color: rgb(128, 128, 128); resize: none; outline: none; border: none;"></textarea></div>
 
 <script>
 window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
@@ -40,8 +100,9 @@ function errorHandler(e) {
 }
 
 
-var name;
-var bytes;
+var name = null;
+var bytes = null;
+var changed = false;
 
 // Uint8Array
 function writeLocalFile() {
@@ -58,6 +119,9 @@ function writeLocalFile() {
           	fileWriter.onwriteend = function(e) {
 
 	            document.getElementById('the_img').src = fileEntry.toURL();
+	            document.getElementById('the_link').href = fileEntry.toURL();
+	            document.getElementById('the_golden_link').href = fileEntry.toURL();
+
           	};
             fileWriter.write(blob); // Note: write() can take a File or Blob object.
 
@@ -68,23 +132,14 @@ function writeLocalFile() {
   }, errorHandler);
 }
 
-// Uint8Array
-function init() {
-	// TODO parse gif, save parsed state
-	// TODO decode message
-
-
-	readMessage();
-
-	
-
-
-}
 
 var MAX_MESSAGE_LENGTH = 1024;
+var MAGIC_BYTE = 0xAA;
 
 function readMessage() {
-	// 1: bad format
+	// 1: bad format (eof)
+	// 2: bad magic byte
+	// 3: no pairs (not encoded)
 	var error = 0;
 
 	var messageBytes = new Uint8Array(MAX_MESSAGE_LENGTH);
@@ -105,6 +160,7 @@ function readMessage() {
 
 	var paletteHisto = new Uint32Array(256);
 
+	top:
 	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
 		var trans = frame.transparent_index;
@@ -169,49 +225,17 @@ function readMessage() {
 			}
 		}
 
-		if (0 === pairs.length) {
-
-		// add capacity to the most frequent index
-			var maxIndex = -1;
-			// first
-			for (var j = 0; j < 256; ++j) {
-				if (trans !== j && -1 !== palette[j]) {
-					maxIndex = j;
-					break;
-				}
-			}
-
-			if (0 <= maxIndex) {
-				for (var j = 0; j < 256; ++j) {
-					if (trans !== j && -1 !== palette[j] && 
-						paletteHisto[maxIndex] < paletteHisto[j]) {
-						maxIndex = j;
-					}
-				}
-
-				// fill in one
-				for (var j = 0; j < 256; ++j) {
-					if (-1 === palette[j]) {
-						palette[j] = palette[maxIndex];
-						++paletteCount;
-						if (maxIndex < j) {
-							pairs.push(maxIndex);
-							pairs.push(j);
-						} else {
-							pairs.push(j);
-							pairs.push(maxIndex);
-							
-						}
-						break;
-					}
-				}
-			}
-		}
-
 		
 	console.log('pair count for frame ' + i + ' is ' + pairs.length);
 	if (0 == i) {
 		console.log('pairs for frame ' + i + ' are ' + pairs);
+	}
+
+	if (0 == pairs.length) {
+		console.log("ERROR: no pairs.");
+
+		error = 3;
+		break;
 	}
 
 		var b = 0;
@@ -235,6 +259,28 @@ function readMessage() {
 			}
 		}
 		console.log('encoded byte count for frame ' + i + ' is ' + byteCount);
+
+		// read the magic byte
+		for (++j; j < n && 0 < byteCount; ++j) {
+			var index = pixels[4 * j + 3];
+			var k = pairs.indexOf(index);
+			if (0 <= k) {
+				console.log('magic byte read bit ' + (k % 2));
+				
+				b |= (k % 2) << bn++;
+				if (8 == bn) {
+					if (MAGIC_BYTE !== b) {
+						error = 2;
+						break top;
+					}
+					b = 0;
+					bn = 0;
+
+					break;
+				}
+			}
+		}
+
 		for (++j; j < n && 0 < byteCount; ++j) {
 			var index = pixels[4 * j + 3];
 			var k = pairs.indexOf(index);
@@ -400,6 +446,9 @@ function updateMessage(message) {
 					}
 				}
 			}
+
+			console.log('extended pair count for frame ' + i + ' is ' + pairs.length);
+
 		}
 
 
@@ -408,7 +457,7 @@ function updateMessage(message) {
 			var byteCount = 0;
 		// recode as much as can fit
 		if (bi < messageBytes.length) {
-			var b = messageBytes[bi];
+			var b;
 			var bn = 0;
 
 			var j = 0;
@@ -421,7 +470,23 @@ function updateMessage(message) {
 					}
 				}
 			}
+
+			b = MAGIC_BYTE;
+			bn = 0;
+			for (++j; j < n; ++j) {
+				var index = indexedPixels[j];
+				var k = pairs.indexOf(index);
+				if (0 <= k) {
+					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
+					if (8 == bn) {
+						break;
+					}
+				}
+			}
+
 			console.log('recoding stopped header at ' + j + ' with bits ' + bn);
+
+			b = messageBytes[bi];
 			bn = 0;
 			for (++j; j < n; ++j) {
 				var index = indexedPixels[j];
@@ -541,9 +606,20 @@ var reader = new FileReader();
 
 
 
+
+
 		// init the message state
 		var message = readMessage();
-		document.getElementById('the_message').innerHTML = null != message ? message : '';
+		if (null == message) {
+	            showNotif('the_empty_notif');
+	            document.getElementById('the_message').value = '';
+		} else {
+
+	            showNotif(null);
+	            document.getElementById('the_message').value = message;
+		}
+		
+		changed = false;
 
 
         };
@@ -579,9 +655,23 @@ var reader = new FileReader();
   document.body.addEventListener('drop', handleFileSelect, false);
 
   document.getElementById('the_message').addEventListener('blur', function(e) {
-  	bytes = updateMessage(document.getElementById('the_message').innerHTML);
 
-          writeLocalFile();
+  			if (null !== bytes && changed) {
+
+  	bytes = updateMessage(sanitizeTextareaValue(document.getElementById('the_message').value));
+  	
+      	    writeLocalFile();
+
+	            showNotif('the_golden_update_notif');
+
+	            changed = false;
+      }
+  });
+  document.getElementById('the_message').addEventListener('input', function(e) {
+  		if (null !== bytes) {
+  			showNotif('the_update_notif');
+  			changed = true;
+  		}
   });
 
 
@@ -599,6 +689,28 @@ function str2ab(str) {
   return new Uint8Array(buf);
 }
 
+function sanitizeTextareaValue(value) {
+	var svalue = "";
+	for (var i = 0, n = value.length; i < n; ++i) {
+		if (0 !== value.charCodeAt(i))
+			svalue += value.charAt(i);
+	}
+	return svalue;
+}
+
+
+var currentNotif = null;
+
+function showNotif(id) {
+	if (null !== currentNotif) {
+		currentNotif.className = '';	
+		currentNotif = null;
+	}
+	if (null != id) {
+		currentNotif = document.getElementById(id);
+	    currentNotif.className = 'show';
+	}
+}
 
   </script>
 
