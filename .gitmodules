@@ -1,0 +1,3 @@
+[submodule "omggif"]
+	path = omggif
+	url = git@github.com:xcolwell/omggif.git
