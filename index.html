@@ -70,7 +70,7 @@ background: rgba(0, 0, 0, 0.6);
     margin-left: auto;
     margin-right: auto; max-width: 80%; max-height: 80%;" /><div id="the_empty_notif">The GIF above has no hidden message. You can add one to the right!</div><div id="the_update_notif">The message to the right is being written into the GIF above. You can <a id="the_link" href="#" target="new">save the GIF</a> and the message will be hidden inside it forever!</div><div id="the_golden_update_notif">The message to the right was written into the GIF above. You can <a id="the_golden_link" href="#" target="new">save the GIF</a> and the message will be hidden inside it forever!</div></div>
     <div style="position: absolute; top: 0px; bottom: 0px; left: 50%; right: 0px;"><textarea id="the_message" style="width: 100%; height: 100%; padding: 32px; font-family: monospace; font-size: 24px; color: rgb(128, 128, 128); resize: none; outline: none; border: none;" disabled="true"></textarea></div>
-
+<a href="https://github.com/xcolwell/steganogify"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
 <script>
 window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
 
@@ -160,8 +160,6 @@ function readMessage() {
 
 	var palette = new Int32Array(256);
 
-	var paletteHisto = new Uint32Array(256);
-
 	top:
 	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
@@ -177,15 +175,14 @@ function readMessage() {
 
 		for (var j = 0; j < 256; ++j) {
 			palette[j] = -1;
-			paletteHisto[j] = 0;
 		}
 
 
 		var paletteCount = 0;
 		for (var j = 0; j < n; ++j) {
 			var index = pixels[4 * j + 3];
-			if (-1 == palette[index]) {
-				if (trans == index) {
+			if (-1 === palette[index]) {
+				if (trans === index) {
 					palette[index] = 0;
 				} else {
 				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
@@ -193,13 +190,12 @@ function readMessage() {
 				++paletteCount;
 			}
 
-			++paletteHisto[index];
 		}
 		console.log('palette count for frame ' + i + ' is ' + paletteCount);
 		if (0 == i) {
 			// detailed pallete output
 			for (var j = 0; j < 256; ++j) {
-				if (-1 != palette[j]) {
+				if (-1 !== palette[j]) {
 					console.log('frame ' + i + ' palette[' + j + '] = ' + ((palette[j] >> 16) & 0xFF) + ',' +
 						((palette[j] >> 8) & 0xFF) + ',' + 
 						(palette[j] & 0xFF));
@@ -229,11 +225,11 @@ function readMessage() {
 
 		
 	console.log('pair count for frame ' + i + ' is ' + pairs.length);
-	if (0 == i) {
+	if (0 === i) {
 		console.log('pairs for frame ' + i + ' are ' + pairs);
 	}
 
-	if (0 == pairs.length) {
+	if (0 === pairs.length) {
 		console.log("ERROR: no pairs.");
 
 		error = 3;
@@ -251,7 +247,7 @@ function readMessage() {
 				console.log('header read bit ' + (k % 2));
 				
 				b |= (k % 2) << bn++;
-				if (8 == bn) {
+				if (8 === bn) {
 					byteCount = b;
 					b = 0;
 					bn = 0;
@@ -270,7 +266,7 @@ function readMessage() {
 				console.log('magic byte read bit ' + (k % 2));
 				
 				b |= (k % 2) << bn++;
-				if (8 == bn) {
+				if (8 === bn) {
 					if (MAGIC_BYTE !== b) {
 						error = 2;
 						break top;
@@ -288,7 +284,7 @@ function readMessage() {
 			var k = pairs.indexOf(index);
 			if (0 <= k) {
 				b |= (k % 2) << bn++;
-				if (8 == bn) {
+				if (8 === bn) {
 					console.log('frame ' + i + ' read byte ' + b);
 					messageBytes[bi++] = b;
 					b = 0;
@@ -361,8 +357,8 @@ function updateMessage(message) {
 		var paletteCount = 0;
 		for (var j = 0; j < n; ++j) {
 			var index = pixels[4 * j + 3];
-			if (-1 == palette[index]) {
-				if (trans == index) {
+			if (-1 === palette[index]) {
+				if (trans === index) {
 					palette[index] = 0;
 				} else {
 				palette[index] = (pixels[4 * j] << 16) | (pixels[4 * j + 1] << 8) | pixels[4 * j + 2];
@@ -467,7 +463,7 @@ function updateMessage(message) {
 				var index = indexedPixels[j];
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
-					if (8 == ++bn) {
+					if (8 === ++bn) {
 						break;
 					}
 				}
@@ -480,7 +476,7 @@ function updateMessage(message) {
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
 					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
-					if (8 == bn) {
+					if (8 === bn) {
 						break;
 					}
 				}
@@ -498,10 +494,10 @@ function updateMessage(message) {
 					if (8 == bn) {
 						console.log('frame ' + i + ' wrote byte ' + b);
 
-						if (255 == ++byteCount) {
+						if (255 === ++byteCount) {
 							break;
 						}
-						if (++bi == messageBytes.length) {
+						if (++bi === messageBytes.length) {
 							break;
 						}
 						b = messageBytes[bi];
@@ -526,7 +522,7 @@ function updateMessage(message) {
 				if (0 <= k) {
 					console.log('header write bit ' + ((b >> bn) & 0x01));
 					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
-					if (8 == bn) {
+					if (8 === bn) {
 						break;
 					}
 				}
