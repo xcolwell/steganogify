@@ -125,7 +125,7 @@ function decode(gifBytes) {
 			var index = pixels[4 * j + 3];
 			var k = pairs.indexOf(index);
 			if (0 <= k) {
-				console.log('magic byte read bit ' + (k % 2));
+				if (DEBUG) console.log('magic byte read bit ' + (k % 2));
 
 				b |= (k % 2) << bn++;
 				if (8 === bn) {
@@ -147,7 +147,7 @@ function decode(gifBytes) {
 			if (0 <= k) {
 				b |= (k % 2) << bn++;
 				if (8 === bn) {
-					console.log('frame ' + i + ' read byte ' + b);
+					if (DEBUG) console.log('frame ' + i + ' read byte ' + b);
 					messageBytes[bi++] = b;
 					b = 0;
 					bn = 0;
