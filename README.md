@@ -1,7 +1,7 @@
 Statement of Purpose
 ====================
 
-The goal of steganogify is to be a simple an reliable tool to store messages in animated GIFs. steganogify is built as a pure JS app with no server component, using HTML5 standards. It runs entirely inside a browser via a drag-and-drop interface.
+The goal of steganogify is to be a simple and reliable tool to store messages in animated GIFs. steganogify is built as a pure JS app with no server component, using HTML5 standards. It runs entirely inside a browser via a drag-and-drop interface.
 
 Some use cases of steganogify that may help creators, viewers, and collectors of GIFs:
 - add author, title, year, and statement to a GIF

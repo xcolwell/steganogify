@@ -1,0 +1,81 @@
+
+
+body {
+	margin: 0; 
+	padding: 0;
+}
+
+a {
+	color: rgb(128, 255, 255);
+	text-decoration: none;
+	border-bottom: 1px rgb(255, 255, 255) dotted;
+}
+
+div.left {
+	position: absolute; top: 0%; bottom: 0px; left: 0px; right: 50%; background: rgb(128, 128, 128); padding: 32px;
+}
+
+div.right {
+	position: absolute; top: 0px; bottom: 0px; left: 50%; right: 0px;
+}
+
+img#the_img {
+	display: block;
+    margin-left: auto;
+    margin-right: auto; max-width: 80%; max-height: 80%;
+}
+
+textarea#the_message {
+	width: 100%; height: 100%; padding: 32px; font-family: monospace; font-size: 24px; color: rgb(128, 128, 128); resize: none; outline: none; border: none;
+}
+
+div#the_update_notif {
+opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+
+div#the_update_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
+
+div#the_golden_update_notif {
+opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+
+div#the_golden_update_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
+
+
+div#the_empty_notif {
+	opacity:0;
+-webkit-transition: opacity 3s;
+-moz-transition: opacity 3s;     
+transition: opacity 3s; 
+-webkit-transition: background 3s;
+-moz-transition: background 3s;     
+transition: background 3s;
+
+	position: absolute; bottom: 20px; left: 30%; right: 30%; width: auto; min-width: 180px; height: auto; font-family: sans-serif; font-size: 18px; background: rgba(128, 128, 128, 1.0); border-radius: 30px; padding: 15px; color: rgb(255, 255, 255); font-variant:small-caps;
+}
+div#the_empty_notif.show {
+opacity:1;
+background: rgba(0, 0, 0, 0.6);
+}
