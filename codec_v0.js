@@ -329,12 +329,13 @@ function encode(gifBytes, message) {
 					if (8 == bn) {
 						if (DEBUG) console.log('frame ' + i + ' wrote byte ' + b);
 
-						if (255 === ++byteCount) {
-							break;
-						}
 						if (++bi === messageBytes.length) {
 							break;
 						}
+						if (255 === ++byteCount) {
+							break;
+						}
+						
 						b = messageBytes[bi];
 						bn = 0;
 					}
