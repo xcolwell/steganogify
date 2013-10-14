@@ -391,7 +391,11 @@ function encode(gifBytes, message) {
 		});
 	}
 
-	return new Uint8Array(buf, 0, gw.end());
+	// when converting to a Blob, the length
+	// of the view is ignored; use subarray(..) 
+	// which doesn't seem to have that problem
+	//return new Uint8Array(buf, 0, gw.end());
+	return buf.subarray(0, gw.end());
 }
 
 
