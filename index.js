@@ -57,7 +57,7 @@ function load() {
 }
 
 
-window.addEventListener('load', load);
+// window.addEventListener('load', load);
 
 
 // NOTIFS
