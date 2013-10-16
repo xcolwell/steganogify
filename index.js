@@ -105,7 +105,7 @@ function readGif(f) {
 }
 
 function writeLocalGif() {
-  window.requestFileSystem(window.TEMPORARY, 64 * 1024 * 1024, function(fs) {
+  window.requestFileSystem(window.TEMPORARY, 8 * 1024 * 1024, function(fs) {
     (function(blob) {
       fs.root.getFile(name, {
         create: true
