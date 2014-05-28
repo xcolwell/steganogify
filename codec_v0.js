@@ -18,7 +18,7 @@
 
 var DEBUG = false;
 
-var MAX_MESSAGE_LENGTH = 4 * 1024;
+var MAX_MESSAGE_LENGTH = 16 * 1024;
 var MAGIC_BYTE = 0xAA;
 
 function decode(gifBytes) {
@@ -43,8 +43,9 @@ function decode(gifBytes) {
 
 	var palette = new Int32Array(256);
 
-	top: for (var i = 0; i < frameCount; ++i) {
+	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
+		n = frame.width * frame.height;
 		var trans = frame.transparent_index;
 		if (trans === null) trans = 256;
 
@@ -91,12 +92,15 @@ function decode(gifBytes) {
 			}
 		}
 
+		// if no pairs, might not have been room
+		/*
 		if (0 === pairs.length) {
-			console.log("ERROR: no pairs.");
+			console.log("ERROR: no pairs on frame " + i + "(read " + bi + " bytes)");
 
 			error = 3;
 			break;
 		}
+		*/
 
 		var b = 0;
 		var bn = 0;
@@ -118,7 +122,7 @@ function decode(gifBytes) {
 				}
 			}
 		}
-		if (DEBUG) console.log('encoded byte count for frame ' + i + ' is ' + byteCount);
+		console.log('encoded byte count for frame ' + i + ' is ' + byteCount);
 
 		// read the magic byte
 		for (++j; j < n && 0 < byteCount; ++j) {
@@ -131,7 +135,7 @@ function decode(gifBytes) {
 				if (8 === bn) {
 					if (MAGIC_BYTE !== b) {
 						error = 2;
-						break top;
+						break;
 					}
 					b = 0;
 					bn = 0;
@@ -139,6 +143,10 @@ function decode(gifBytes) {
 					break;
 				}
 			}
+		}
+		if (2 === error) {
+			console.log("ERROR: bad magic byte at frame " + i);
+			break;
 		}
 
 		for (++j; j < n && 0 < byteCount; ++j) {
@@ -164,13 +172,16 @@ function decode(gifBytes) {
 		}
 	}
 
-	return 0 === error ? ab2str(new Uint8Array(messageBytes, 0, bi)) : null;
+	console.log("Decoded " + bi + " bytes with error " + error);
+	console.log(messageBytes);
+
+	return 0 === error ? ab2str(messageBytes.subarray(0, bi)) : null;
 }
 
 function encode(gifBytes, message) {
 	var messageBytes = str2ab(message);
 	if (MAX_MESSAGE_LENGTH < messageBytes.length) {
-		messageBytes = new Uint8Array(messageBytes, 0, MAX_MESSAGE_LENGTH);
+		messageBytes = messageBytes.subarray(0, MAX_MESSAGE_LENGTH);
 	}
 
 	var bi = 0;
@@ -196,6 +207,7 @@ function encode(gifBytes, message) {
 
 	for (var i = 0; i < frameCount; ++i) {
 		frame = gr.frameInfo(i);
+		n = frame.width * frame.height;
 		var trans = frame.transparent_index;
 		if (trans === null) trans = 256;
 
@@ -281,20 +293,19 @@ function encode(gifBytes, message) {
 				}
 			}
 
-			if (DEBUG) console.log('extended pair count for frame ' + i + ' is ' + pairs.length);
+			console.log('extended pair count for frame ' + i + ' is ' + pairs.length);
 		}
 
 
 		if (DEBUG) console.log('recoded ' + bi + ' of ' + messageBytes.length + ' bytes');
 
 		var byteCount = 0;
-		// recode as much as can fit
-		if (bi < messageBytes.length) {
+		
 			var b;
 			var bn = 0;
 
-			var j = 0;
-			for (; j < n; ++j) {
+			var j;
+			for (j = 0; j < n; ++j) {
 				var index = indexedPixels[j];
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
@@ -310,8 +321,9 @@ function encode(gifBytes, message) {
 				var index = indexedPixels[j];
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
-					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
+					indexedPixels[j] = pairs[(k - (k % 2)) + ((b >> bn++) & 0x01)];
 					if (8 === bn) {
+						console.log("encoded magic byte for frame " + i);
 						break;
 					}
 				}
@@ -319,20 +331,23 @@ function encode(gifBytes, message) {
 
 			if (DEBUG) console.log('recoding stopped header at ' + j + ' with bits ' + bn);
 
+		// recode as much as can fit
+		if (bi < messageBytes.length) {
 			b = messageBytes[bi];
 			bn = 0;
 			for (++j; j < n; ++j) {
 				var index = indexedPixels[j];
 				var k = pairs.indexOf(index);
 				if (0 <= k) {
-					indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
+					indexedPixels[j] = pairs[(k - (k % 2)) + ((b >> bn++) & 0x01)];
+					console.log("stenciled index " + j + " as " + indexedPixels[j]);
+
 					if (8 == bn) {
 						if (DEBUG) console.log('frame ' + i + ' wrote byte ' + b);
+						++byteCount;
+						++bi;
 
-						if (++bi === messageBytes.length) {
-							break;
-						}
-						if (255 === ++byteCount) {
+						if (bi === messageBytes.length || 256 === byteCount) {
 							break;
 						}
 						
@@ -342,54 +357,63 @@ function encode(gifBytes, message) {
 				}
 			}
 
-			// normalize for RLE as much as possible
-			for (++j; j < n; ++j) {
-				var index = indexedPixels[j];
-				var k = pairs.indexOf(index);
-				if (0 <= k) {
-					indexedPixels[j] = pairs[0 == (k % 2) ? k : (k - 1)];
-				}
-			}
-
-			if (DEBUG) console.log('recoded ' + byteCount + ' bytes with ' + bn + ' hanging bits');
 		}
+
+
+		// normalize for RLE as much as possible
+		for (++j; j < n; ++j) {
+			var index = indexedPixels[j];
+			var k = pairs.indexOf(index);
+			if (0 <= k) {
+				indexedPixels[j] = pairs[(k - (k % 2))];
+			}
+		}
+
+		if (DEBUG) console.log('recoded ' + byteCount + ' bytes with ' + bn + ' hanging bits');
 
 		// always write the header
 		// the reader counts on having a header (0),
 		// and if not skips the frame
-		var b = byteCount;
-		var bn = 0;
+		b = byteCount;
+		bn = 0;
 		for (j = 0; j < n; ++j) {
 			var index = indexedPixels[j];
 			var k = pairs.indexOf(index);
 			if (0 <= k) {
 				if (DEBUG) console.log('header write bit ' + ((b >> bn) & 0x01));
-				indexedPixels[j] = pairs[(0 == (k % 2) ? k : (k - 1)) + ((b >> bn++) & 0x01)];
+				indexedPixels[j] = pairs[(k - (k % 2)) + ((b >> bn++) & 0x01)];
 				if (8 === bn) {
 					break;
 				}
 			}
 		}
-		if (DEBUG) console.log('wrote header for byte count ' + byteCount);
+		console.log('wrote header for byte count ' + byteCount);
 
 
 		// trim the palette to the smallest power of two
 		var maxIndex = 0;
-		for (var j = 1; j < 256; ++j) {
-			if (-1 === palette[j]) {
+		for (var j = 255; 0 <= j; --j) {
+			if (trans === j || -1 !== palette[j]) {
 				maxIndex = j;
+				break;
 			}
 		}
 		var p = 1;
 		for (; p < maxIndex; p *= 2);
 
+		console.log("trim palette to " + p);
+
 		gw.addFrame(0, 0, frame.width, frame.height, indexedPixels, {
-			palette: new Int32Array(palette, 0, p),
+			palette: palette.subarray(0, p), 
+			//palette
+			//new Int32Array(palette, 0, p),
 			transparent: frame.transparent_index,
 			delay: frame.delay,
 			disposal: frame.disposal
 		});
 	}
+
+	console.log("Encoded " + bi + " of " + messageBytes.length + " bytes.");
 
 	// when converting to a Blob, the length
 	// of the view is ignored; use subarray(..) 

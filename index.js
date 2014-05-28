@@ -110,14 +110,21 @@ function writeLocalGif() {
       fs.root.getFile(name, {
         create: true
       }, function(fileEntry) {
+        var truncated = false;
         fileEntry.createWriter(function(fileWriter) {
           fileWriter.onwriteend = function(e) {
+            if (!truncated) {
+              truncated = true;
+              this.truncate(this.position);
+              return;
+            }
 
             document.getElementById('the_img').src = fileEntry.toURL();
             document.getElementById('the_link').href = fileEntry.toURL();
             document.getElementById('the_golden_link').href = fileEntry.toURL();
 
           };
+          fileWriter.seek(0);
           fileWriter.write(blob); // Note: write() can take a File or Blob object.
 
         }, errorHandler);
